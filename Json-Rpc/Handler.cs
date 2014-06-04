@@ -303,6 +303,17 @@ using Newtonsoft.Json.Linq;
                     return new JsonResponse() { Result = null, Error = new JsonRpcException(-32601, "Method not found", "The method does not exist / is not available."), Id = Rpc.Id };
                 }
 
+                if (response.Error != null)
+                {
+                    // this is not right yet..
+                    if (response.Error.InnerException is JsonRpcException)
+                    {
+                        return new JsonResponse() { Error = ProcessException(Rpc, response.Error.InnerException as JsonRpcException) };
+                    }
+                    // this at least works a little.
+                    return new JsonResponse() { Error = ProcessException(Rpc, new JsonRpcException(-32603, "Internal Error", response.Error)), Id = Rpc.Id };
+                }
+
                 var results = response.Result;
 
                 var last = parameters.Length > 0 ? parameters[paramCount - 1]:null;
