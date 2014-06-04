@@ -306,9 +306,10 @@ using Newtonsoft.Json.Linq;
                 if (response.Error != null)
                 {
                     // this is not right yet..
-                    if (response.Error.InnerException is JsonRpcException)
+                    var testException =(response.Error.data as Exception); 
+                    if (testException != null  && testException.InnerException is JsonRpcException)
                     {
-                        return new JsonResponse() { Error = ProcessException(Rpc, response.Error.InnerException as JsonRpcException) };
+                        return new JsonResponse() { Error = ProcessException(Rpc, testException.InnerException as JsonRpcException) };
                     }
                     // this at least works a little.
                     return new JsonResponse() { Error = ProcessException(Rpc, new JsonRpcException(-32603, "Internal Error", response.Error)), Id = Rpc.Id };

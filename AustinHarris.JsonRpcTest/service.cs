@@ -51,6 +51,11 @@ namespace UnitTests
         }
 
 
+        [JsonRpcMethod]
+        private List<object> BuildAListOfWhatever(int param1, int param2, int param3, int param4, int param5, int param6, double doubleparam, string stringparam)
+        {
+            return new List<object>() { param1, param2,param3, param4, param5, param6, doubleparam,stringparam };
+        }
 
         [JsonRpcMethod("internal.echo")]
         private string Handle_Echo(string s)

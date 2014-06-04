@@ -128,6 +128,19 @@ namespace UnitTests
 
         }
 
+          [TestMethod]
+        public void TestLotsOfParams()
+        {
+            string request = @"{method:'BuildAListOfWhatever',params:[1,4,7,8,9,123,1.32,""hello""],id:1}";
+            string expectedResult = "{\"jsonrpc\":\"2.0\",\"result\":[1,4,7,8,9,123,1.32,\"hello\"],\"id\":1}";
+            var result =  JsonRpcProcessor.Process(request);
+            result.Wait();
+            Assert.IsTrue(result.Result.StartsWith(expectedResult));
+
+        }
+
+        
+
         [TestMethod]
         public void ReturnsDateTime()
         {
