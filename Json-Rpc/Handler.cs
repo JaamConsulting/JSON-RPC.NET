@@ -13,8 +13,7 @@ using Newtonsoft.Json.Linq;
     public class Handler
     {
         #region Members
-
-        //private static Handler current;
+        private JAAM.RPC.RPCService _rpc = new JAAM.RPC.RPCService();
         private static ConcurrentDictionary<string, Handler> _sessionHandlers;
         private static string _defaultSessionId;
         #endregion
@@ -33,7 +32,6 @@ using Newtonsoft.Json.Linq;
         {
             SessionId = sessionId;
             this.MetaData = new SMD();
-            this.Handlers = new Dictionary<string, Delegate>();
         }
 
         #endregion
@@ -73,7 +71,7 @@ using Newtonsoft.Json.Linq;
         {
             Handler h;
             _sessionHandlers.TryRemove(sessionId,out h);
-            h.Handlers.Clear();
+            h._rpc = null;
             h.MetaData.Services.Clear();
         }
         /// <summary>
@@ -140,7 +138,6 @@ using Newtonsoft.Json.Linq;
         private AustinHarris.JsonRpc.PreProcessHandler externalPreProcessingHandler;
         private Func<JsonRequest, JsonRpcException, JsonRpcException> externalErrorHandler;
         private Func<string, JsonRpcException, JsonRpcException> parseErrorHandler;
-        private Dictionary<string,Delegate> Handlers { get; set; }
         #endregion
 
         /// <summary>
@@ -159,18 +156,16 @@ using Newtonsoft.Json.Linq;
         public bool Register(string key, Delegate handle)
         {
             var result = false;
-
-            if (!this.Handlers.ContainsKey(key))
-            {
-                this.Handlers.Add(key, handle);
-            }
+            var parameters = Enumerable.Concat(handle.Method.GetParameters().Select(x => Tuple.Create(x.Name, x.ParameterType)),new [] {Tuple.Create("returns", handle.Method.ReturnType)});
+            _rpc.AddToService(key, parameters, handle);
 
             return result;
         }
 
         public void UnRegister(string key)
         {
-            this.Handlers.Remove(key);
+            Tuple<Delegate, JAAM.RPC.RpcDefinition> value;
+            _rpc.handlers.TryRemove(key, out value);
             MetaData.Services.Remove(key);
         }
 
@@ -192,14 +187,8 @@ using Newtonsoft.Json.Linq;
             }
 
             SMDService metadata = null;
-            Delegate handle = null;
-            var haveDelegate = this.Handlers.TryGetValue(Rpc.Method, out handle);
             var haveMetadata = this.MetaData.Services.TryGetValue(Rpc.Method, out metadata);
-
-            if (haveDelegate == false || haveMetadata == false || metadata == null || handle == null)
-            {
-                return new JsonResponse() { Result = null, Error = new JsonRpcException(-32601, "Method not found", "The method does not exist / is not available."), Id = Rpc.Id };
-            }
+            
             if (Rpc.Params is ICollection == false)
             {
                 return new JsonResponse()
@@ -306,8 +295,17 @@ using Newtonsoft.Json.Linq;
 
             try
             {
-                var results = handle.DynamicInvoke(parameters);
-                var last = parameters.Length>0 ? parameters[paramCount - 1]:null;
+
+
+                var response = _rpc.Invoke(new JAAM.RPC.RpcRequest(Rpc.Method,parameters,Rpc.Id.GetHashCode()));
+                if (haveMetadata == false || metadata == null)
+                {
+                    return new JsonResponse() { Result = null, Error = new JsonRpcException(-32601, "Method not found", "The method does not exist / is not available."), Id = Rpc.Id };
+                }
+
+                var results = response.Result;
+
+                var last = parameters.Length > 0 ? parameters[paramCount - 1]:null;
                 JsonRpcException contextException;
                 if (Task.CurrentId.HasValue && RpcExceptions.TryRemove(Task.CurrentId.Value, out contextException))
                 {
